@@ -16,8 +16,6 @@ coverage
 
 /cypress/videos/
 /cypress/screenshots/
-/sourcedata
-/client/chinavis2024/node_modules
 
 # Editor directories and files
 .vscode/*
@@ -28,3 +26,5 @@ coverage
 *.njsproj
 *.sln
 *.sw?
+
+*.tsbuildinfo
