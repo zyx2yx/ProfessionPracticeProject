@@ -40,4 +40,10 @@ export const reqGetClassStudentList = classid_list => ajax('/studentinfo', {clas
 // 在当前选中的班级中实现模糊查询
 export const reqStuFuzzySearch = (classid, searchcolumn, keyword) => ajax('/studentinfo/fuzzysearch', {classid, searchcolumn, keyword})
 // 根据学生id列表、班级id列表、起止时间获取学生答题特征信息，POST请求
-export const reqParallelDataOfStudentOrClass = (studentid_ids, classid_ids, start_time, end_time) => ajax('/studentinfo/paralleldata', {studentid_ids, classid_ids, start_time, end_time},'POST')
+export const reqParallelDataOfStudentOrClass = (student_ids, class_ids, start_time, end_time) => ajax('/studentinfo/paralleldata', {student_ids, class_ids, start_time, end_time},'POST')
+// export const reqParallelDataOfStudentOrClass = (studentid_ids, classid_ids, start_time, end_time) => ajax('/hello', {studentid_ids, classid_ids, start_time, end_time},'POST')
+// export const reqParallelDataOfStudentOrClass = (studentid_ids, classid_ids, start_time, end_time) => ajax('/studentinfo/paralleldata', {studentid_ids, classid_ids, start_time, end_time})
+// 获取旭日图数据
+export const reqSunburstData = (student_id) => ajax('/knowledge_lr', {student_id})
+// 获取学生某知识点答题状态信息
+export const reqAnswerStatus = (student_id, kg) => ajax('/answer_state', {student_id, kg})

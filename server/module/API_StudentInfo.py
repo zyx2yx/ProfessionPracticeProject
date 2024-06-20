@@ -2,6 +2,7 @@ import pywss
 import pandas as pd
 import numpy as np
 import os
+import json
 
 # relative_path = "../../sourcedata/"
 # 获取当前文件路径
@@ -82,6 +83,9 @@ def resStuFuzzySearch(ctx: pywss.Context):
     
 def getStudentSimpleFeatures(start_time, end_time):
     submit_record = pd.read_csv(relative_path + 'All_Class/all_class_submit_record.csv')
+    # start_time, end_time为精确到秒的Unix时间戳, 用于筛选数据
+    if start_time and end_time:
+        submit_record = submit_record[(submit_record['time'] >= start_time) & (submit_record['time'] <= end_time)]
     submit_record = submit_record.drop_duplicates(subset=['student_ID','time']) # 去除数据处理时增加的重复数据
     
     submit_record['time'] = pd.to_datetime(submit_record['time'], unit='s')
@@ -139,26 +143,39 @@ def getStudentSimpleFeatures(start_time, end_time):
     features = features[['total_score','learn_hours','active_days','avg_score_ratio','avg_correct_rate',
                          'attempts_avg','most_common_hour','most_common_state',
                          'most_common_method','attempts_questions_num','attempts_all','class']]
+    
+    # features['most_common_hour'] = features['most_common_hour'].astype(np.int64) # int32 to int
+    # print(features.dtypes)
 
     return features
 
 # f = getStudentSimpleFeatures("","")
+# print(f[:10])
 # print(f[f['class'] == 'Class1']['most_common_state'].value_counts())
 
+def default_dump(obj):
+    """Convert numpy classes to JSON serializable objects."""
+    if isinstance(obj, (np.integer, np.floating, np.bool_)):
+        return obj.item()
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    else:
+        return obj
+
 def resParallelDataOfStudentOrClass(ctx: pywss.Context):
-    print(ctx.json())
+    # print(ctx.json())
     student_ids, class_ids, start_time, end_time = ctx.json().values()
-    # print(student_ids, class_ids, start_time, end_time)
+    print(student_ids, class_ids, start_time, end_time)
     if not student_ids and not class_ids:
         ctx.write({"status" : -1, "student_ids":student_ids, "class_ids":class_ids, "res_data":{}, "error_msg": "empty student_ids or class_ids!"})
         return
 
-    res = {"status" : 0, "student_ids":student_ids, "class_ids":class_ids, "res_data":{}, "merge_list":student_id + class_ids,"res_list_data":[],"error_msg": "empty student_ids or class_ids!"}
+    res = {"status" : 0, "student_ids":student_ids, "class_ids":class_ids, "res_data":{}, "merge_list":student_ids + class_ids,"res_list_data":[],"error_msg": "empty student_ids or class_ids!"}
     features = getStudentSimpleFeatures(start_time, end_time) # dataframe
 
     # 对每一个student_id, 取出该行数据，转化为list, 作为res.res_data.id的value
     for student_id in student_ids:
-        res['res_data'][student_id] = features.loc[student_id].drop(['attempts_questions_num','attempts_all','class'],axis=1).to_list()
+        res['res_data'][student_id] = features.loc[student_id].drop(columns = ['attempts_questions_num','attempts_all','class']).to_list()
         res['res_list_data'].append(res['res_data'][student_id])
     # 按照class进行分组，每一组：除most_common_method，most_common_state按组取频次最高的值外，其余列全部按组取求均值
     features_class = features.groupby('class').agg({
@@ -179,6 +196,8 @@ def resParallelDataOfStudentOrClass(ctx: pywss.Context):
         res['res_data'][class_id] = features_class.loc[class_id].to_list()
         res['res_list_data'].append(res['res_data'][class_id])
     
+    # print("res:",res)
+    res = json.dumps(res, default=default_dump)
     ctx.write(res)
 
 def register(app: pywss.App):

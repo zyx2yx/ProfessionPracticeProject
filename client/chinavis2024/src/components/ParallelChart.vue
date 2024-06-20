@@ -1,6 +1,7 @@
 <script setup>
 // import * as d3 from "d3";
 import * as echarts from 'echarts';
+import dayjs from 'dayjs';
 import { onMounted, reactive, ref, watch, onUpdated } from "vue";
 import { storeToRefs } from "pinia";
 
@@ -11,18 +12,91 @@ import { storeToRefs } from "pinia";
 // import { BrushComponent } from "echarts/components";
 
 import { useSelectClassStore } from "../stores/selectClass";
-import { ParallelDataOfStudentOrClass } from '../api/index'
+import { reqParallelDataOfStudentOrClass } from '../api/index'
 
 // echarts.use([ParallelComponent, ParallelChart, SVGRenderer, BrushComponent]);
 
 /* ...............................var....................................*/
-const { selectTags } = storeToRefs(useSelectClassStore());
+const { selectTags, selectStudents } = storeToRefs(useSelectClassStore());
+/* antd时间组件数据与函数 */
+const range = (start, end) => {
+  const result = [];
+  for (let i = start; i < end; i++) {
+    result.push(i);
+  }
+  return result;
+};
+let start = dayjs("2023-08-31");
+let end = dayjs("2024-01-25")
+// console.log("start, end:",start, end);
+
+const disabledDate = current => {
+  // Can not select days before today and today
+  
+// console.log(current , dayjs().endOf('day'));
+  // return current && current < dayjs().endOf('day');
+  return current < start || current > end;
+};
+const disabledDateTime = () => {
+  return {
+    disabledHours: () => range(0, 24).splice(4, 20),
+    disabledMinutes: () => range(30, 60),
+    disabledSeconds: () => [55, 56],
+  };
+};
+const disabledRangeTime = (_, type) => {
+  if (type === 'start') {
+    return {
+      disabledHours: () => range(0, 60).splice(4, 20),
+      disabledMinutes: () => range(30, 60),
+      disabledSeconds: () => [55, 56],
+    };
+  }
+  return {
+    disabledHours: () => range(0, 60).splice(20, 4),
+    disabledMinutes: () => range(0, 31),
+    disabledSeconds: () => [55, 56],
+  };
+};
+const value3 = ref([start, end]);
+const rangePresets = ref([
+  // {
+  //   label: 'Next 7 Days',
+  //   value: [dayjs(value3.value[0].format('YYYY-MM-DD')) ,dayjs(value3.value[0].format('YYYY-MM-DD')).add(7, 'd')],// 有bug，起始时间没有立刻更新
+  // },
+  // {
+  //   label: 'Next 14 Days',
+  //   value: [value3.value[0].add(14, 'd'), dayjs()],
+  // },
+  // {
+  //   label: 'Next 30 Days',
+  //   value: [value3.value[0].add(30, 'd'), dayjs()],
+  // },
+  // {
+  //   label: 'Next 90 Days',
+  //   value: [value3.value[0].add(90, 'd'), dayjs()],
+  // },
+]);
+
+const handleCalOpenChange = async (status) => {
+  // console.log('Calendar Open Status:', v1, v2,v3);
+  // console.log("vlaue3:", value3.value, value3.value[0].format('YYYY-MM-DD'), value3.value[1].format('YYYY-MM-DD'));
+  if (!status){
+    let response_data = await reqParallelDataOfStudentOrClass(selectStudents.value, selectTags.value,  value3.value[0].unix(), value3.value[1].unix());
+    option.series.data = response_data.res_list_data;
+    option && myChart.setOption(option);
+  }
+};
+
+/* antd时间组件数据与函数 */
+
 
 let option = {
   brush: {
         brushLink: 'all',
         brushMode:'multiple',// ?想要在同一坐标轴刷选多个地方，但是不生效
         toolbox: ['clear'],
+        // toolbox: [],
         xAxisIndex: 'all,',
         yAxisIndex: 'all,',
         inBrush: {
@@ -67,21 +141,54 @@ let option = {
   //     }
   // },
   parallelAxis: [
-    { dim: 0, name: 'Score' },
-    { dim: 1, name: 'Learn Hours' },
-    { dim: 2, name: 'Learn Days' },
-    { dim: 3, name: 'Avg Complete' },
-    { dim: 4, name: 'Avg Correct' },
-    { dim: 5, name: 'Avg Attempts' },
-    { dim: 6, name: 'Best Time', type: 'category', 
-      data: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23]},
-    { dim: 7, name: 'Most State', type: 'category', 
-      data: ['Absolutely_Correct', 'Absolutely_Error', 'Partially_Correct','Error1', 
-      'Error2', 'Error3', 'Error4','Error5', 'Error6','Error7', 'Error8', 'Error9']},
-    { dim: 8, name: 'Most Method', type: 'category', 
-    data: ['Method_Cj9Ya2R7fZd6xs1q5mNQ', 'Method_gj1NLb4Jn7URf9K2kQPd',
- 'Method_5Q4KoXthUuYz3bvrTDFm', 'Method_m8vwGkEZc3TSW2xqYUoR',
- 'Method_BXr9AIsPQhwNvyGdZL57']},
+    { dim: 0, name: '得分' },
+    { dim: 1, name: '时长' },
+    { dim: 2, name: '天数' },
+    { dim: 3, name: '得分率' },
+    { dim: 4, name: '正确率' },
+    { dim: 5, name: '尝试数' },
+    { dim: 6, name: '活跃时间', type: 'category', 
+      data: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23],
+      axisLabel: {
+        formatter: function (value, _) {
+          if (value % 4 === 0) {
+            return value + 'h';
+          }else{
+            return '';
+          }
+          // return value + 'h';
+        }
+      }
+    },
+    { dim: 7, 
+      name: '常见状态', 
+      type: 'category', 
+      data: ['Absolutely_Correct', 'Absolutely_Error', 'Partially_Correct','Error1','Error2', 'Error3', 'Error4','Error5', 'Error6','Error7', 'Error8', 'Error9'],
+      axisLabel: {
+        formatter: function (value, _) {
+          if (value === 'Absolutely_Correct') {
+            return 'AC';
+          } else if (value === 'Absolutely_Error') {
+            return 'AE';
+          } else if (value === 'Partially_Correct') {
+            return 'PC';
+          } else {
+            // 返回E+最后一个数字
+            return 'E'+value[value.length-1];
+          }
+        }
+      }
+    },
+    { dim: 8, 
+      name: '常用方法', 
+      type: 'category', 
+      data: ['Method_Cj9Ya2R7fZd6xs1q5mNQ', 'Method_gj1NLb4Jn7URf9K2kQPd', 'Method_5Q4KoXthUuYz3bvrTDFm', 'Method_m8vwGkEZc3TSW2xqYUoR', 'Method_BXr9AIsPQhwNvyGdZL57'],
+      axisLabel: {
+        formatter: function (_, index) {
+          return "M_"+index;
+        }
+      }
+  },
   ],
   series: {
     type: 'parallel',
@@ -95,26 +202,43 @@ let option = {
     ]
   },
   parallel: {
-        top: '20%',
+        top: '15%',
         left: '5%',
-        right: '20%',
+        right: '10%',
         bottom: '5%',
     },
 };
+let myChart;
 
 /* ...............................var....................................*/
 
 onMounted(async () => {
   const chartDom = document.getElementById('parallel-chart');
-  const myChart = echarts.init(chartDom,null,{renderer: 'svg'});
-  let response_data = await ParallelDataOfStudentOrClass([], selectTags.value, '_starttime','_endtime');
+  myChart = echarts.init(chartDom,null,{renderer: 'svg'});
+  let response_data = await reqParallelDataOfStudentOrClass(selectStudents.value, selectTags.value, value3.value[0].unix(), value3.value[1].unix());
   option.series.data = response_data.res_list_data;
   option && myChart.setOption(option);
 });
 
+watch(selectTags, async (newVal, oldVal) => {
+
+  // let response_data = await reqParallelDataOfStudentOrClass(selectStudents.value, newVal,  value3.value[0].unix(), value3.value[1].unix());
+  // option.series.data = response_data.res_list_data;
+  // option && myChart.setOption(option);
+});
 </script>
 
 <template>
+  <a-space direction="vertical">
+    <a-range-picker 
+      v-model:value="value3" 
+      :disabled-date="disabledDate" 
+      size="small"
+      :defaultPickerValue="[start, end]"
+      :presets="rangePresets"
+      @openChange="handleCalOpenChange"
+      />
+  </a-space>
   <div id="parallel-chart">
   </div>
 </template>

@@ -1,7 +1,11 @@
 <script setup>
 // import { RouterLink, RouterView } from 'vue-router'
-import LeftClassBar from './components/LeftClassBar.vue'
+import LeftClassBar from './components/LeftClassBar.vue';
 import ParallelChart from './components/ParallelChart.vue';
+import KnowledgeSunburst from './components/KnowledgeSunburst.vue';
+import LearnHeatMap from './components/LearnHeatMap.vue';
+import RadarChart from './components/RadarChart.vue';
+import StateChart from './components/StateChart.vue';
 </script>
 
 <!-- <template>
@@ -92,19 +96,32 @@ nav a:first-of-type {
     <div class="sub-main left" style="width: 35%; height: 100%">
       <div class="container">
         <LeftClassBar />
-        <div id="paper-author">
+        <div id="parallelchart">
           <!-- <HighCitationPaper />
           <HighOutputAuthor /> -->
           <ParallelChart />
         </div>
-        <div id="word-cloud">
+        <div id="weak-knowledge">
           <!-- <WordCloud /> -->
+          <div style="width: 65%; height: 100%;"> 
+            <KnowledgeSunburst />
+          </div>
+          <div id="statechart" style="width: 35%; height: 100%;">
+            <StateChart />
+          </div>
+        </div>
+        <div id="heatmap">
+          <LearnHeatMap />
         </div>
       </div>
     </div>
     <div class="sub-main mid" style="width: 60%; height: 100%">
       <div class="container">
-        <!-- <ForceCahrt /><OverViewBar /> -->
+        <div id="radarchart" style="width: 100%; height: 70%;">
+          <RadarChart />
+        </div>
+        <!-- TBQChart -->
+        
       </div>
     </div>
     <div class="sub-main right" style="width: 25%; height: 100%">
@@ -144,14 +161,19 @@ nav a:first-of-type {
   display: flex;
   flex-direction: column;
 }
-#paper-author {
-  height: 30%;
+#parallelchart {
+  height: 25%;
   width: 100%;
   display: flex;
   flex-direction: column;
 }
-#word-cloud{
-  height: 30%;
+#weak-knowledge{
+  height: 25%;
+  width: 100%;
+  display: flex;
+}
+#heatmap{
+  height: 20%;
   width: 100%;
 }
 .paper-list-outer{

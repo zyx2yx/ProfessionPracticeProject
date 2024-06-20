@@ -2,6 +2,8 @@
 import * as d3 from "d3";
 import { onMounted, reactive, ref, watch, onUpdated } from "vue";
 import { storeToRefs } from "pinia";
+import { UserOutlined, UsergroupAddOutlined } from '@ant-design/icons-vue';
+
 
 import { useSelectClassStore } from "../stores/selectClass";
 import { reqGetClassStudentList, reqStuFuzzySearch } from '../api/index'
@@ -10,9 +12,9 @@ import { reqGetClassStudentList, reqStuFuzzySearch } from '../api/index'
 // import data from "../data/OverView/data.json";
 
 // 你可以直接从 store 中解构 action
-const { resetSelectTags, selectStart, selectEnd, switchClass, updateStudentList, updateStudentListByIndex } = useSelectClassStore();
+const { resetSelectTags, selectStart, selectEnd, switchClass, updateStudentList, updateStudentListByIndex, addSelectStudent, resetSelectStudents } = useSelectClassStore();
 // 为了从 store 中提取属性时保持其响应性，你需要使用 storeToRefs()
-const { selectTags, currentClass, studentList } = storeToRefs(useSelectClassStore())
+const { selectTags, currentClass, studentList, selectStudents } = storeToRefs(useSelectClassStore())
 // ref返回一个包含value属性的对象，通过修改value属性的值，可以触发组件更新。
 // 而reactive返回一个响应式的Proxy对象。，通过修改该对象的属性值，可以触发组件更新。
 
@@ -68,10 +70,12 @@ const handleChange = value => {
   // console.log(value)
   // 发送请求获取班级学生列表
   reqStudenListByClassid(value)
+  resetSelectStudents();
   switchClass(value[0])
 };
 const handleResetSelect = () => {
   resetSelectTags();
+  resetSelectStudents();
 };
 const handleFocus = () => {
   selectStart();
@@ -96,10 +100,19 @@ const handleTabClick = (e) => {// 点击班级标签
       .classed('tab-item-show',true)
 }
 const handlemovein = (e) => {
-  e.currentTarget.style.backgroundColor = '#eaf4ff'
+  // e.currentTarget.style.backgroundColor = '#eaf4ff'
+  d3.select(e.currentTarget).classed('user-hover',true)
 }
 const handlemoveout = (e) => {
-  e.currentTarget.style.backgroundColor = 'white'
+  // e.currentTarget.style.backgroundColor = 'white'
+  d3.select(e.currentTarget).classed('user-hover',false)
+}
+const handleRowClick = (e) => {
+  // console.log(e.currentTarget)
+  // console.log(e.currentTarget.classList)
+  d3.select(e.currentTarget).classed('stu-selected',true)
+  let class_idx = selectTags.value.indexOf(currentClass.value)
+  addSelectStudent(studentList.value[class_idx][e.currentTarget.getAttribute('idx')].student_ID, class_idx)
 }
 
 const reqStudenListByClassid = async (class_list) => {
@@ -128,10 +141,10 @@ let tempStuListByIdx = [] // 保存模糊搜索前的数据
 const onFuzzySearch = async searchValue => {
 
   // 查找currentClass.value在selectTags中的索引
-    let select_index = selectTags.value.indexOf(currentClass.value)
+    let class_idx = selectTags.value.indexOf(currentClass.value)
   if (searchValue === '') {
     if (tempStuListByIdx.length != 0) { // 此时需要恢复原始数据
-      updateStudentListByIndex(tempStuListByIdx, select_index)
+      updateStudentListByIndex(tempStuListByIdx, class_idx)
       tempStuListByIdx = []
     }
   }else{
@@ -140,8 +153,8 @@ const onFuzzySearch = async searchValue => {
     // console.log("fuzzySearchRes:",fuzzySearchRes);
     
     // 将搜索结果更新到studentList中
-    tempStuListByIdx = studentList.value[select_index]
-    updateStudentListByIndex(fuzzySearchRes.res_data, select_index)
+    tempStuListByIdx = studentList.value[class_idx]
+    updateStudentListByIndex(fuzzySearchRes.res_data, class_idx)
   }
 };
 
@@ -242,6 +255,19 @@ function draw() {
 
 }
 
+function isInlist(list, item) {
+  // 判断list是否有值
+  if (!list) {
+    return false;
+  }
+  for (let i = 0; i < list.length; i++) {
+    if (list[i] === item) {
+      return true;
+    }
+  }
+  return false;
+}
+
 </script>
 
 <template>
@@ -281,35 +307,45 @@ function draw() {
         allow-clear
       />
     </div>
-    
-    <div id="table-head" @click="handleTableHeadClick">
-      <div class="cell1 search-column">student_ID</div>
-      <div class="cell2">sex</div>
-      <div class="cell3">age</div>
-      <div class="cell4">major</div>
-    </div>
-    <div id="table-body">
-      <!-- <div class="class-tab-list"> -->
-        <div class="table-block" v-for="(s_list, index) in studentList" :id="selectTags[index]">
-          <div class="table-row" v-for="(s,i) in s_list" :key="i" 
-            @mouseover="handlemovein"
-            @mouseout="handlemoveout"
-            >
-            <div class="cell1">{{s.student_ID}}</div>
-            <div class="cell2">{{s.sex}}</div>
-            <div class="cell3">{{s.age}}</div>
-            <div class="cell4">{{s.major}}</div>
-          </div>
+    <div style="display: flex;flex-grow: 1; overflow: hidden; margin-bottom: 5px;">
+      <div id="table-container">
+        <div id="table-head" @click="handleTableHeadClick">
+          <div class="cell1 search-column">student_ID</div>
+          <div class="cell2">sex</div>
+          <div class="cell3">age</div>
+          <div class="cell4">major</div>
         </div>
-      <!-- </div> -->
+        <div id="table-body">
+          <!-- <div class="class-tab-list"> -->
+            <div class="table-block" v-for="(s_list, index) in studentList" :id="selectTags[index]">
+              <!-- <div :class="['table-row', {'stu-selected':isInlist(selectStudents[index], s.student_ID)}]" v-for="(s,i) in s_list" :key="i" :idx="i" -->
+              <div :class="['table-row', {'stu-selected':isInlist(selectStudents, s.student_ID)}]" v-for="(s,i) in s_list" :key="i" :idx="i"
+                @mouseover="handlemovein"
+                @mouseout="handlemoveout"
+                @click="handleRowClick"
+                >
+                <div class="cell1">{{s.student_ID}}</div>
+                <div class="cell2">{{s.sex}}</div>
+                <div class="cell3">{{s.age}}</div>
+                <div class="cell4">{{s.major}}</div>
+              </div>
+            </div>
+          <!-- </div> -->
+        </div>
+      </div>
+      <div id="selected-tabs">
+        <a-tag class="tabs" size="small" v-for="classid in selectTags"> <template #icon><UsergroupAddOutlined /></template>{{ classid }}</a-tag>
+        <a-tag class="tabs" size="small" closable @close="stutabclose" v-for="sid in selectStudents"> <template #icon><UserOutlined /></template>{{ `${sid.slice(0, 6)}...` }}</a-tag>
+      </div>
     </div>
+    
   </div>
 </template>
 
 <style scoped>
 #left-class-bar {
   width: 100%;
-  height: 40%;
+  height: 30%;
   display: flex;
   flex-direction: column;
   font-size: 12px;
@@ -322,6 +358,15 @@ function draw() {
   /* border-radius: 10px; */
   background-color: #eaf4ff;
   cursor: pointer;
+}
+
+#table-container{
+  width: 80%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  /* overflow: hidden; */
+  /* flex-grow: 1; */
 }
 
 #table-head{
@@ -347,6 +392,19 @@ function draw() {
   border-color: #eaf4ff;
   -ms-overflow-style: none; /* IE 10+ */
   scrollbar-width: none; /* Firefox */
+}
+#selected-tabs{
+  width: 20%;
+  padding-left: 5px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  /* align-items: center; */
+}
+#selected-tabs .tabs{
+  width: 100%;
+  text-align: center;
+  margin: 0;
 }
 #table-body::-webkit-scrollbar {
   display: none; /* Safari and Chrome */
@@ -398,10 +456,16 @@ function draw() {
   /* background-color: #eaf4ff; */
   background-color: white;
 }
-.search-column{
+.search-column, .user-hover{
   /* background-color: #5da9fa; */
   /* color: rgba(0, 0, 255, 0.2); */
-  background-color: #eaf4ff;
+
+  /* background-color: #eaf4ff; */
+  background-color: #bae0ff;
   font-weight: bold;
+}
+.stu-selected{
+  background-color: #e6f4ff;
+  /* border: 1px solid #6392b6; */
 }
 </style>
