@@ -4,7 +4,7 @@ import * as echarts from 'echarts';
 import { onMounted, reactive, ref, watch, onUpdated } from "vue";
 import { storeToRefs } from "pinia";
 
-import { reqParallelDataOfStudentOrClass } from '../api/index'
+import { reqActivity } from '../api/index'
 
 /* ...............................var....................................*/
 
@@ -30,34 +30,51 @@ function getVirtualData(year) {
 
 option = {
   title: {
-    top: 30,
+    top: 15,
     left: 'center',
-    text: 'Daily Step Count'
+    text: '学生活跃度'
   },
   tooltip: {},
   visualMap: {
     min: 0,
-    max: 10000,
-    type: 'piecewise',
+    max: 10,
+    type: 'continuous',
     orient: 'horizontal',
     left: 'center',
-    top: 65
+    top: 50,
+    inRange:{
+      color: ['#ebedf0', '#216e39']
+    }
   },
   calendar: {
     top: 120,
     left: 30,
     right: 30,
-    cellSize: ['auto', 13],
+    cellSize: 15,
     range: ['2023-8-31', '2024-1-25'],
     itemStyle: {
       borderWidth: 0.5
     },
-    yearLabel: { show: false }
+    splitLine:{
+      show: true,
+      lineStyle: {
+        color: '#000',
+        width: 1,
+        type: 'dashed'
+      }
+    },
+    yearLabel: { show: false },
+    monthLabel: { nameMap: 'ZH' },
+    dayLabel: { nameMap: 'ZH' }
   },
   series: {
     type: 'heatmap',
     coordinateSystem: 'calendar',
-    data: getVirtualData('2023')
+    // data: getVirtualData('2023'),
+    data: [],
+    // itemStyle: {
+    //   color: '#216e39'
+    // }
   }
 };
 
@@ -66,6 +83,8 @@ option = {
 onMounted(async () => {
   const chartDom = document.getElementById('heatmap-chart');
   myChart = echarts.init(chartDom,null,{renderer: 'svg'});
+  let response_data = await reqActivity('zhx5rxgopln1p5hd10ql');
+  option.series.data = response_data.res_data;
   option && myChart.setOption(option);
 });
 

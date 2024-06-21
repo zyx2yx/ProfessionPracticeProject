@@ -47,3 +47,5 @@ export const reqParallelDataOfStudentOrClass = (student_ids, class_ids, start_ti
 export const reqSunburstData = (student_id) => ajax('/knowledge_lr', {student_id})
 // 获取学生某知识点答题状态信息
 export const reqAnswerStatus = (student_id, kg) => ajax('/answer_state', {student_id, kg})
+// 获取某学生活跃度信息
+export const reqActivity = (student_id) => ajax('/student_activity', {student_id})

@@ -95,11 +95,11 @@ nav a:first-of-type {
   <div class="main">
     <div class="sub-main left" style="width: 35%; height: 100%">
       <div class="container">
-        <LeftClassBar />
         <div id="parallelchart">
-          <!-- <HighCitationPaper />
-          <HighOutputAuthor /> -->
           <ParallelChart />
+        </div>
+        <div style="width: 100%; height: 30%;">
+          <LeftClassBar />
         </div>
         <div id="weak-knowledge">
           <!-- <WordCloud /> -->

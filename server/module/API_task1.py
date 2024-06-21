@@ -129,6 +129,53 @@ def test_resAnswerStateData():
     # print('title_count:',title_count)
 # test_resAnswerStateData()
 
+def resHeatMapData(ctx: pywss.Context):
+    student_id = ctx.url_params['student_id']
+    temp_record = submit_record[submit_record['student_ID'] == student_id].copy()
+    temp_record['time'] = pd.to_datetime(temp_record['time'], unit='s')
+    temp_record['hour'] = temp_record['time'].dt.hour # 0-23
+    temp_record['time'] = temp_record['time'].dt.date
+    learn_time_day = temp_record.groupby(['time']).agg({'hour': lambda x: x.unique().size}).to_csv()
+    res_data = []
+    # 将csv_format单行保存为list, push到res_data中
+    for line in learn_time_day.split('\r\n')[1:]: # 第一行是time,hour
+        if line == '':
+            break
+        res_data.append(line.split(','))
+
+
+    res = {"status":0, "res_data":res_data}
+    ctx.write(res)
+
+def test_resHeatMapData(submit_record: pd.DataFrame, student_id: str):
+
+    # student_id = 'zhx5rxgopln1p5hd10ql'
+    temp_record = submit_record[submit_record['student_ID'] == student_id].copy()
+    temp_record['time'] = pd.to_datetime(temp_record['time'], unit='s')
+    temp_record['hour'] = temp_record['time'].dt.hour # 0-23
+    temp_record['time'] = temp_record['time'].dt.date
+
+    # temp_record['time_date'] = temp_record['submit_time'].dt.strftime("%Y-%m-%d")
+    learn_time_day = temp_record.groupby(['time']).agg({'hour': lambda x: x.unique().size})
+    # print('learn_time_day:',learn_time_day[50:60].to_csv())
+    csv_format = learn_time_day.to_csv()
+    # print('csv_format:',csv_format)
+    # for line in csv_format.split('\n'):
+    #     print(line[0],line[1],type(line[0]))
+    #     break
+    res_data = []
+    # 将csv_format单行保存为list, push到res_data中
+    for line in csv_format.split('\r\n')[1:]: # 第一行是time,hour
+        if line == '':
+            break
+        res_data.append(line.split(','))
+    print('res_data:',res_data)
+    
+    # res = {"status":0, "res_data":temp_record.to_dict()}
+    # ctx.write(res)
+# test_resHeatMapData(submit_record, 'zhx5rxgopln1p5hd10ql')
+
 def register(app: pywss.App):
     app.get("/knowledge_lr", resKnowledgeSunburstData)
     app.get("/answer_state", resAnswerStateData)
+    app.get("/student_activity", resHeatMapData)

@@ -272,7 +272,7 @@ function isInlist(list, item) {
 
 <template>
   <div id="left-class-bar">
-    <a-flex :style="{ ...boxStyle }">选择班级:
+    <!-- <a-flex :style="{ ...boxStyle }">选择班级:
       <a-select
       v-model:value="selectTags"
       mode="multiple"
@@ -289,7 +289,7 @@ function isInlist(list, item) {
       >清除</a-button>
 
       <a-button type="primary" size="small" @click="handleCommit">确认</a-button>
-    </a-flex>
+    </a-flex> -->
     <div style="display: flex; justify-content: space-between; background-color: #eaf4ff; margin: 5px 0;">
       <div style="display: flex; ">
         <div class="tab-item" v-for="classname in selectTags" :key="classname" @click="handleTabClick"
@@ -345,7 +345,7 @@ function isInlist(list, item) {
 <style scoped>
 #left-class-bar {
   width: 100%;
-  height: 30%;
+  height: 100%;
   display: flex;
   flex-direction: column;
   font-size: 12px;
