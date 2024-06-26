@@ -2,6 +2,7 @@ import pywss
 
 from module import API_StudentInfo
 from module import API_task1
+from module import API_task2
 
 def cors(ctx: pywss.Context):
     if ctx.method == pywss.MethodOptions:
@@ -24,6 +25,7 @@ def main():
     app.post("/hello", helloHandler)
     API_StudentInfo.register(app)
     API_task1.register(app)
+    API_task2.register(app)
     
     app.run(port=8080)  # 默认端口为8080
 

@@ -6,6 +6,9 @@ import KnowledgeSunburst from './components/KnowledgeSunburst.vue';
 import LearnHeatMap from './components/LearnHeatMap.vue';
 import RadarChart from './components/RadarChart.vue';
 import StateChart from './components/StateChart.vue';
+import TSNEScatter from './components/TSNEScatter.vue';
+import DayActivityRiver from './components/DayActivityRiver.vue';
+import MultiLineChart from './components/MultiLineChart.vue';
 </script>
 
 <!-- <template>
@@ -93,7 +96,7 @@ nav a:first-of-type {
     <p>Visualization Challenge 1.1 of Chinavis 2024</p>
   </div>
   <div class="main">
-    <div class="sub-main left" style="width: 35%; height: 100%">
+    <div class="sub-main left" style="width: 30%; height: 100%">
       <div class="container">
         <div id="parallelchart">
           <ParallelChart />
@@ -115,19 +118,25 @@ nav a:first-of-type {
         </div>
       </div>
     </div>
-    <div class="sub-main mid" style="width: 60%; height: 100%">
+    <div class="sub-main mid" style="width: 40%; height: 100%">
       <div class="container">
-        <div id="radarchart" style="width: 100%; height: 70%;">
-          <RadarChart />
+        <div id="radarchart" style="width: 100%; height: 50%;">
+            <RadarChart />
         </div>
-        <!-- TBQChart -->
+        <div id="activity" style="width: 100%; height: 25%;">
+            <DayActivityRiver />
+        </div>
+        <div id="attemps-correct" style="width: 100%; height: 25%;">
+            <MultiLineChart />
+        </div>
         
       </div>
     </div>
-    <div class="sub-main right" style="width: 25%; height: 100%">
+    <div class="sub-main right" style="width: 30%; height: 100%">
       <div class="container">
-        <!-- <div class="paper-list-outer"><PaperList /></div>
-        <div class="author-list-outer"><AuthorList /></div> -->
+          <div style="width: 100%; height: 30%;">
+            <TSNEScatter />
+          </div>
       </div>
     </div>
     <div id="tooltip" class="prompt-hide"></div>

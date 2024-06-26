@@ -49,3 +49,11 @@ export const reqSunburstData = (student_id) => ajax('/knowledge_lr', {student_id
 export const reqAnswerStatus = (student_id, kg) => ajax('/answer_state', {student_id, kg})
 // 获取某学生活跃度信息
 export const reqActivity = (student_id) => ajax('/student_activity', {student_id})
+// 获取学生群体聚类结果
+export const reqCluster = () => ajax('/student_clusters')
+// 获取学生聚类特征tsne降维坐标
+export const reqTsnePos = () => ajax('/tsne_dr')
+// 获取学生群体在每一天的活跃度（提交次数）总和
+export const reqActivitySum = () => ajax('/day_activity_river')
+// 获取学生群体每个题目的尝试次数与正确率
+export const reqAttemptAndCorrect = () => ajax('/attempts_correct')
