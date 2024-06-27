@@ -9,6 +9,8 @@ import StateChart from './components/StateChart.vue';
 import TSNEScatter from './components/TSNEScatter.vue';
 import DayActivityRiver from './components/DayActivityRiver.vue';
 import MultiLineChart from './components/MultiLineChart.vue';
+import FeatureImpactBar from './components/FeatureImpactBar.vue';
+import KnowledgeLevelBoxplot from './components/KnowledgeLevelBoxplot.vue';
 </script>
 
 <!-- <template>
@@ -126,8 +128,13 @@ nav a:first-of-type {
         <div id="activity" style="width: 100%; height: 25%;">
             <DayActivityRiver />
         </div>
-        <div id="attemps-correct" style="width: 100%; height: 25%;">
+        <div style="width: 100%; height: 25%; display: flex;">
+          <div style="width: 70%; height: 100%;">
             <MultiLineChart />
+          </div>
+          <div style="width: 30%; height: 100%;">
+            <KnowledgeLevelBoxplot />
+          </div>
         </div>
         
       </div>
@@ -136,6 +143,9 @@ nav a:first-of-type {
       <div class="container">
           <div style="width: 100%; height: 30%;">
             <TSNEScatter />
+          </div>
+          <div style="width: 100%; height: 30%;">
+            <FeatureImpactBar />
           </div>
       </div>
     </div>

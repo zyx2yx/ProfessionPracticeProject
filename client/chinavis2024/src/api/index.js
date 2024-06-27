@@ -57,3 +57,7 @@ export const reqTsnePos = () => ajax('/tsne_dr')
 export const reqActivitySum = () => ajax('/day_activity_river')
 // 获取学生群体每个题目的尝试次数与正确率
 export const reqAttemptAndCorrect = () => ajax('/attempts_correct')
+// 获取学生特征对知识掌握程度的影响系数
+export const reqFeatureImpact = () => ajax('/feature_importance')
+// 获取不同学生群体知识掌握程度
+export const reqKnowledgeLevel = () => ajax('/knowledge_level')

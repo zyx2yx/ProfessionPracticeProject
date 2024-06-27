@@ -4,6 +4,11 @@ import numpy as np
 import os
 import json
 from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
 from sklearn.cluster import AgglomerativeClustering
 from sklearn.cluster import DBSCAN
@@ -228,6 +233,95 @@ def resAttempsAndCorrectLineData(ctx: pywss.Context):
     res = json.dumps(res, default=API_StudentInfo.default_dump)
     ctx.write(res)
 
+def featureLinearRegression(ft: pd.DataFrame):
+    features = ft.copy()
+    featuresX = features[['most_common_hour', 'most_common_method', 'active_days', 'learn_hours',
+               'attempts_b3C9s', 'attempts_g7R2j', 'attempts_k4W1c',
+               'attempts_m3D1v', 'attempts_r8S3g', 'attempts_s8Y2f',
+               'attempts_t5V9e', 'attempts_y9W5d', 'score_ratio_b3C9s',
+               'score_ratio_g7R2j', 'score_ratio_k4W1c', 'score_ratio_m3D1v',
+               'score_ratio_r8S3g', 'score_ratio_s8Y2f', 'score_ratio_t5V9e',
+               'score_ratio_y9W5d']]
+    # 定义多个不同的权重组合
+    weights_list = [
+        {'total_score': 0.3, 'learn_hours': -0.1, 'active_days': -0.1, 'attempts_mean': -0.1, 'score_ratio_mean': 0.4}, # active_days设置为负数 r2_score = 0.99... 最佳
+    ]
+    features['attempts_mean'] = features[['attempts_b3C9s', 'attempts_g7R2j', 'attempts_k4W1c', 'attempts_m3D1v', 'attempts_r8S3g', 
+                            'attempts_s8Y2f', 'attempts_t5V9e', 'attempts_y9W5d']].mean(axis=1)
+    features['score_ratio_mean'] = features[['score_ratio_b3C9s', 'score_ratio_g7R2j', 'score_ratio_k4W1c', 'score_ratio_m3D1v', 
+                                'score_ratio_r8S3g', 'score_ratio_s8Y2f', 'score_ratio_t5V9e', 'score_ratio_y9W5d']].mean(axis=1)
+
+    for weights in weights_list:
+        features['knowledge_mastery_score'] = (
+            weights['total_score'] * features['total_score'] +
+            weights['learn_hours'] * features['learn_hours'] +
+            weights['active_days'] * features['active_days'] +
+            weights['attempts_mean'] * features['attempts_mean'] +
+            weights['score_ratio_mean'] * features['score_ratio_mean']
+        )
+
+        target = features['knowledge_mastery_score']
+
+        scaler = StandardScaler()
+        scaled_features = scaler.fit_transform(featuresX)
+        X_train, X_test, y_train, y_test = train_test_split(scaled_features, target, test_size=0.2, random_state=42)
+
+        # 使用线性回归模型
+        linear_model = LinearRegression()
+        linear_model.fit(X_train, y_train)
+        y_pred_linear = linear_model.predict(X_test)
+        mse_linear = mean_squared_error(y_test, y_pred_linear)
+        r2_linear = r2_score(y_test, y_pred_linear)
+        # 线性回归模型解释
+        coefficients = linear_model.coef_
+        feature_importance_linear = pd.DataFrame({'Feature': featuresX.columns, 'Coefficient': coefficients})
+        feature_importance_linear.sort_values(by='Coefficient', ascending=False, inplace=True)
+
+
+        # 使用随机森林回归模型
+        # rf_model = RandomForestRegressor(random_state=42)
+        # rf_model.fit(X_train, y_train)
+        # y_pred_rf = rf_model.predict(X_test)
+        # mse_rf = mean_squared_error(y_test, y_pred_rf)
+        # r2_rf = r2_score(y_test, y_pred_rf)
+
+        # print('Weights:', weights)
+        # print('Linear Regression Mean Squared Error:', mse_linear)
+        # print('Linear Regression R2 Score:', r2_linear)
+        # print('-')
+        # print('Random Forest Mean Squared Error:', mse_rf)
+        # print('Random Forest R2 Score:', r2_rf)
+        # print('------')
+        return linear_model, feature_importance_linear, features
+    
+def resFeatureImportance(ctx: pywss.Context):
+    linear_model, feature_importance_linear, _ = featureLinearRegression(features)
+    xaxislabels = feature_importance_linear['Feature'].to_list()
+    cofficients = feature_importance_linear['Coefficient'].to_list()
+    res = {"status":0, "res_data":{ "xaxislabels": xaxislabels, "cofficients": cofficients }}
+    res = json.dumps(res, default=API_StudentInfo.default_dump)
+    ctx.write(res)
+
+def resLearnResultBoxPlotData(ctx: pywss.Context):
+    lm, _, ft = featureLinearRegression(features)
+    # score = features.groupby('hierarchical_cluster')['knowledge_mastery_score']
+    # group_ids = []
+    # scorelist = []
+    # for group, data in score:
+    #     group_ids.append(group)
+    #     scorelist.append(data.to_list())
+
+    # res = {"status":0, "res_data":{ "group_ids": group_ids, "scorelist": scorelist }}
+    # res = json.dumps(res, default=API_StudentInfo.default_dump)
+    # ctx.write(res)
+
+    # ft = ft[['student_ID', 'hierarchical_cluster', 'class', 'knowledge_mastery_score']] # student_ID是索引，特征中不包含class
+    ft = ft[['hierarchical_cluster', 'knowledge_mastery_score']]
+    # res = {"status":0, "res_data": {'values': ft.values.tolist(), 'columns': ['ID', 'cluster', 'class', 'kg_level']}}
+    res = {"status":0, "res_data": {'values': ft.values.tolist(), 'columns': ['cluster', 'kg_level']}}
+    res = json.dumps(res, default=API_StudentInfo.default_dump)
+    ctx.write(res)
+
 def register(app: pywss.App):
     # app.get("/knowledge_lr", resKnowledgeSunburstData)
     # app.get("/answer_state", resAnswerStateData)
@@ -236,3 +330,5 @@ def register(app: pywss.App):
     app.get("/tsne_dr", resScatterData) 
     app.get("/day_activity_river", resRiverFlowData)
     app.get("/attempts_correct", resAttempsAndCorrectLineData)
+    app.get("/feature_importance", resFeatureImportance)
+    app.get("/knowledge_level", resLearnResultBoxPlotData)
