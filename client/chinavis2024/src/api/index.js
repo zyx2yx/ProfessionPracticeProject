@@ -44,7 +44,7 @@ export const reqParallelDataOfStudentOrClass = (student_ids, class_ids, start_ti
 // export const reqParallelDataOfStudentOrClass = (studentid_ids, classid_ids, start_time, end_time) => ajax('/hello', {studentid_ids, classid_ids, start_time, end_time},'POST')
 // export const reqParallelDataOfStudentOrClass = (studentid_ids, classid_ids, start_time, end_time) => ajax('/studentinfo/paralleldata', {studentid_ids, classid_ids, start_time, end_time})
 // 获取旭日图数据
-export const reqSunburstData = (student_id) => ajax('/knowledge_lr', {student_id})
+export const reqSunburstData = (student_list=0, student_cluster=0, student_class=0, week=22) => ajax('/knowledge_lr', {student_list, student_cluster, student_class, week},'POST')
 // 获取学生某知识点答题状态信息
 export const reqAnswerStatus = (student_id, kg) => ajax('/answer_state', {student_id, kg})
 // 获取某学生活跃度信息
@@ -61,3 +61,9 @@ export const reqAttemptAndCorrect = () => ajax('/attempts_correct')
 export const reqFeatureImpact = () => ajax('/feature_importance')
 // 获取不同学生群体知识掌握程度
 export const reqKnowledgeLevel = () => ajax('/knowledge_level')
+// 获取weekview数据
+export const reqWeekViewtData = (student_list) => ajax('/weekview', {student_list}, 'POST')
+// 获取problemview数据
+export const reqProblemViewtData = (student_list=0, student_cluster=0, student_class=0) => ajax('/problemview',{student_list, student_cluster, student_class}, 'POST')
+// 获取选择的学生群体的平均特征值
+export const reqStudentAvgRadarFeature = (student_list) => ajax('/student_feature', {student_list}, 'POST')

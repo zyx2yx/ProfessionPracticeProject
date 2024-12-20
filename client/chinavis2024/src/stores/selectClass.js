@@ -6,7 +6,7 @@ import { defineStore } from 'pinia'
 export const useSelectClassStore = defineStore('selectClassStore', () => {
 
   // const selectTags = reactive(['Class2']);
-  const selectTags = ref(['Class2']); // 选择框中的班级
+  const selectTags = ref(['Class1','Class2','Class3','Class4']); // 选择框中的班级
   const selectState = ref(false) // 选择框选择状态
   const currentClass = ref('Class2') // 当前展示的班级
   const studentList = ref([]) // selectTags对应的嵌套学生列表

@@ -176,6 +176,6 @@ def test_resHeatMapData(submit_record: pd.DataFrame, student_id: str):
 # test_resHeatMapData(submit_record, 'zhx5rxgopln1p5hd10ql')
 
 def register(app: pywss.App):
-    app.get("/knowledge_lr", resKnowledgeSunburstData)
+    # app.get("/knowledge_lr", resKnowledgeSunburstData)
     app.get("/answer_state", resAnswerStateData)
     app.get("/student_activity", resHeatMapData)

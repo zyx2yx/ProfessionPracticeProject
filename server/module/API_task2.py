@@ -8,7 +8,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, r2_score
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.cluster import KMeans
 from sklearn.cluster import AgglomerativeClustering
 from sklearn.cluster import DBSCAN
@@ -19,6 +19,7 @@ import seaborn as sns
 from sklearn.manifold import TSNE
 from sklearn.decomposition import PCA
 from module import API_StudentInfo 
+from datetime import datetime
 
 # relative_path = "../../sourcedata/"
 # 获取当前文件路径
@@ -35,12 +36,13 @@ title_info = pd.read_csv(relative_path + 'Data_TitleInfo.csv')
 knowledge_count = title_info['knowledge'].value_counts().to_dict()
 
 # 将时间戳转换为日期时间格式
-submit_record['time'] = pd.to_datetime(submit_record['time'], unit='s')
+submit_record['date'] = pd.to_datetime(submit_record['time'], unit='s')
+# submit_record['timestamp'] = submit_record['date'].dt.timestamp()
 
 # 提取时间特征
-submit_record['hour'] = submit_record['time'].dt.hour # 0-23
-submit_record['day'] = submit_record['time'].dt.day # 1-31
-submit_record['month'] = submit_record['time'].dt.month # 1-12
+submit_record['hour'] = submit_record['date'].dt.hour # 0-23
+submit_record['day'] = submit_record['date'].dt.day # 1-31
+submit_record['month'] = submit_record['date'].dt.month # 1-12
 # 按时间特征统计答题量
 hourly_data = submit_record.groupby('hour').size()
 daily_data = submit_record.groupby('day').size()
@@ -58,17 +60,44 @@ knowledge_pivot = knowledge_pivot / knowledge_pivot.columns.map(knowledge_count)
 # 重命名列名（可选）
 knowledge_pivot.columns = [f'attempts_{col}' for col in knowledge_pivot.columns]
 
+# 计算memory和timeconsume的特征
+# 直接保留原值，0表示出错情况
+
+# 计算state的错误数量
+submit_record['ErrorAvoid'] = submit_record['state'].apply(lambda x: 0 if 'Absolutely_Correct' in x else 1)
+
+
 # 计算特征
 features = submit_record.groupby('student_ID').agg({
     # hour的计算有错误
     # 'hour': lambda x: x.value_counts().idxmax(), # 最常答题的时间段 匿名函数作用是返回出现次数最多的值 .value_counts()统计每个值出现的次数 .idxmax()返回出现次数最多的值
     'method': lambda x: x.value_counts().idxmax(), # 最常用的方法
+    'index': 'count', # 尝试次数
+    'memory': 'mean',
+    'timeconsume': 'mean',
+    'ErrorAvoid': 'sum',
+    # 'timestamp': 'median'  # 提交日期的中位数
+    'date': 'mean'  # 提交日期的平均数
 })
 # 这行代码的作用是将多级列索引转换为单级索引，并且分配容易理解的列名。
 features.columns = [
     # 'most_common_hour', 
     'most_common_method', 
+    'TestFreeBouns',# 单个学生总的尝试次数
+    'MemBonus',
+    'TimeBonus',
+    'ErrorAvoid',
+    'Enthusiasm',
 ]
+
+# 特征反转：时间和空间消耗越大越差，错误类型越多越差，提交日期越晚越差
+features['TestFreeBouns'] = -features['TestFreeBouns']
+features['MemBonus'] = -features['MemBonus']
+features['TimeBonus'] = -features['TimeBonus']
+features['ErrorAvoid'] = -features['ErrorAvoid']
+features['Enthusiasm'] = -features['Enthusiasm'].apply(lambda x: x.timestamp())
+# Explore 特征, 初始化为0
+features['Explore'] = 0
 
 # 学生的活跃天数，需要注意答题记录中包含5个月的数据
 temple_submit_record = submit_record.drop_duplicates(subset=['student_ID', 'month','day'], keep='first')
@@ -91,7 +120,7 @@ score_pivot.columns = [f'score_ratio_{col}' for col in score_pivot.columns]
 # 计算学生总的得分
 submit_record = submit_record.sort_values(by=['student_ID', 'title_ID', 'score'], ascending=[True, True, False])
 submit_record = submit_record.drop_duplicates(subset=['student_ID', 'title_ID'], keep='first')
-features['total_score'] = submit_record.groupby('student_ID')['score'].sum()
+features['Score'] = submit_record.groupby('student_ID')['score'].sum()
 
 
 # 合并到特征表 how='left'表示左连接,左连接表示以左表为基础，右表中的数据只要在左表中有对应的就会被合并到一起，没有对应的就会被舍弃。
@@ -112,12 +141,19 @@ features['most_common_method'] = features['most_common_method'].cat.codes
 # print(features['most_common_method'].cat.categories.to_list())
 
 # 标准化特征
-num_clusters = 6
+features = features[['Score','TestFreeBouns','MemBonus', 'TimeBonus', 'ErrorAvoid','Enthusiasm','learn_hours','Explore']]
+num_clusters = 3
 scaler = StandardScaler()
 scaled_features = scaler.fit_transform(features)
+scaler = MinMaxScaler()
+features[['Enthusiasm']] = scaler.fit_transform(features[['Enthusiasm']])
 # 层次聚类
-hierarchical = AgglomerativeClustering(n_clusters=num_clusters)
-features['hierarchical_cluster'] = hierarchical.fit_predict(scaled_features)
+# hierarchical = AgglomerativeClustering(n_clusters=num_clusters)
+# features['kmeans_cluster'] = hierarchical.fit_predict(scaled_features)
+# KMeans
+kmeans = KMeans(n_clusters=num_clusters, random_state=42, init='k-means++', algorithm='lloyd', n_init='auto')
+features['kmeans_cluster'] = kmeans.fit_predict(scaled_features)
+
 # t-SNE降维
 tsne = TSNE(n_components=2, random_state=42)
 tsne_features = tsne.fit_transform(scaled_features)
@@ -125,10 +161,9 @@ tsne_features = tsne.fit_transform(scaled_features)
 features['tsne_one'] = tsne_features[:, 0]
 features['tsne_two'] = tsne_features[:, 1]
 
-cluster_centers = features.drop(['tsne_one', 'tsne_two'], axis=1).groupby('hierarchical_cluster').mean()
-# cluster_centers['most_common_hour'] = features.groupby('hierarchical_cluster').agg({'most_common_hour' : lambda x : x.value_counts().idxmax()})
-cluster_centers['most_common_hour'] = features.groupby('hierarchical_cluster').agg({'most_common_hour' : 'median'})
-cluster_centers['most_common_method'] = features.groupby('hierarchical_cluster').agg({'most_common_method' : lambda x : x.value_counts().idxmax()})
+cluster_centers = features.drop(['tsne_one', 'tsne_two'], axis=1).groupby('kmeans_cluster').mean()
+# cluster_centers['most_common_hour'] = features.groupby('kmeans_cluster').agg({'most_common_hour' : 'median'})
+# cluster_centers['most_common_method'] = features.groupby('kmeans_cluster').agg({'most_common_method' : lambda x : x.value_counts().idxmax()})
 
 # print(cluster_centers)
 
@@ -141,15 +176,17 @@ def resStuClusterData(ctx: pywss.Context):
 
     indicator = []
     for axisname in cluster_centers.columns.values:
+        # if axisname == 'Enthusiasm':
         indicator.append({"name":axisname, 
-                        #   "max":features[axisname].max(), "min":features[axisname].min()
-                          })
+                          "max":1.1 * features[axisname].max(), "min":0.9 * features[axisname].min()
+                        })
 
     res = {"status":0, "res_data":{ "cluster_ids": cluster_ids, "method2code": method2code, "cluster_data": cluster_data, 'indicator': indicator}}
     res = json.dumps(res, default=API_StudentInfo.default_dump)
     ctx.write(res)
 
 posByCluster = []
+student_ids = []
 def getPos(x:pd.DataFrame):
     y = x[['tsne_one', 'tsne_two']]
     pos = []
@@ -157,11 +194,16 @@ def getPos(x:pd.DataFrame):
         pos.append(value.to_list())
     posByCluster.append(pos)
 
+    # z = x['student_ID']
+    student_ids.append(x.index.values.tolist())
+
 def resScatterData(ctx: pywss.Context):
-    df = features.groupby('hierarchical_cluster')
+    # posByCluster = []
+    # student_ids = []
+    df = features.groupby('kmeans_cluster')
     cluster_ids = [index for index, _ in df]
     df.apply(getPos)
-    res = {"status":0, "res_data":{ "pos": posByCluster, "cluster_ids": cluster_ids }}
+    res = {"status":0, "res_data":{ "pos": posByCluster, "cluster_ids": cluster_ids, "student_ids": student_ids}}
     res = json.dumps(res, default=API_StudentInfo.default_dump)
 
     ctx.write(res)
@@ -169,10 +211,10 @@ def resScatterData(ctx: pywss.Context):
 def readSubmitRecord():
     submit_record = pd.read_csv(relative_path + 'All_Class/all_class_submit_record.csv')
     submit_record = submit_record.drop_duplicates(subset=['student_ID','time']) # 去除数据处理时增加的重复数据
-    submit_record['time'] = pd.to_datetime(submit_record['time'], unit='s')
-    submit_record['hour'] = submit_record['time'].dt.hour # 0-23
-    submit_record['day'] = submit_record['time'].dt.day # 1-31
-    submit_record['month'] = submit_record['time'].dt.month # 1-12
+    submit_record['date'] = pd.to_datetime(submit_record['time'], unit='s')
+    submit_record['hour'] = submit_record['date'].dt.hour # 0-23
+    submit_record['day'] = submit_record['date'].dt.day # 1-31
+    submit_record['month'] = submit_record['date'].dt.month # 1-12
     return submit_record
 
 def getAttemptsByHour(submit_record: pd.DataFrame):
@@ -187,16 +229,16 @@ def getAttemptsByHour(submit_record: pd.DataFrame):
 def test_getAttemptsByHour():
     submit_record = readSubmitRecord()
     learn_time_day = getAttemptsByHour(submit_record)
-    learn_time_day = learn_time_day.merge(features['hierarchical_cluster'], on='student_ID', how='left').fillna(0)
+    learn_time_day = learn_time_day.merge(features['kmeans_cluster'], on='student_ID', how='left').fillna(0)
     print('learn_time_day:',learn_time_day[:5])
 # test_getAttemptsByHour()
 
 def resRiverFlowData(ctx: pywss.Context):
     submit_record = readSubmitRecord()
     learn_time_day = getAttemptsByHour(submit_record)
-    learn_time_day = learn_time_day.merge(features['hierarchical_cluster'], on='student_ID', how='left').fillna(0)
-    # data_by_group = learn_time_day.groupby('hierarchical_cluster').sum()
-    data_by_group = learn_time_day.groupby('hierarchical_cluster').mean()
+    learn_time_day = learn_time_day.merge(features['kmeans_cluster'], on='student_ID', how='left').fillna(0)
+    # data_by_group = learn_time_day.groupby('kmeans_cluster').sum()
+    data_by_group = learn_time_day.groupby('kmeans_cluster').mean()
     # 将data_by_group转换为二维list:[[time, value, group],...]
     river_data = []
     for group, data in data_by_group.iterrows():
@@ -212,19 +254,19 @@ def resAttempsAndCorrectLineData(ctx: pywss.Context):
     attemptsByTitle = submit_record.groupby(['student_ID', 'title_ID']).agg({'index': 'count'}).reset_index()
     attemptsByTitle = attemptsByTitle.pivot(index='student_ID', columns='title_ID', values='index').fillna(0)
     attemptsByTitle = attemptsByTitle[title_info['title_ID'].unique()] # 按顺序排列
-    attemptsByTitle = attemptsByTitle.merge(features['hierarchical_cluster'], on='student_ID', how='left').fillna(0)
+    attemptsByTitle = attemptsByTitle.merge(features['kmeans_cluster'], on='student_ID', how='left').fillna(0)
 
     # submit_record['is_correct'] = submit_record['state'].apply(lambda x: 1 if x == 'Absolutely_Correct' else 0)
     submit_record['is_correct'] = submit_record['score'] / submit_record['full_score'] # 将得分率作为正确率
     correctByTitle = submit_record.groupby(['student_ID', 'title_ID']).agg({'is_correct': 'mean'}).reset_index().pivot(index='student_ID', columns='title_ID', values='is_correct').fillna(0)
     correctByTitle = correctByTitle[title_info['title_ID'].unique()] # 按顺序排列
-    correctByTitle = correctByTitle.merge(features['hierarchical_cluster'], on='student_ID', how='left').fillna(0)
+    correctByTitle = correctByTitle.merge(features['kmeans_cluster'], on='student_ID', how='left').fillna(0)
 
     #
-    attempts = attemptsByTitle.groupby('hierarchical_cluster').mean()
+    attempts = attemptsByTitle.groupby('kmeans_cluster').mean()
     attempts_index = attempts.index.values
     attempts_list = attempts.values.tolist()
-    correct = correctByTitle.groupby('hierarchical_cluster').mean()
+    correct = correctByTitle.groupby('kmeans_cluster').mean()
     correct_index = correct.index.values
     correct_list = correct.values.tolist()
 
@@ -233,6 +275,19 @@ def resAttempsAndCorrectLineData(ctx: pywss.Context):
     res = json.dumps(res, default=API_StudentInfo.default_dump)
     ctx.write(res)
 
+def resStudentsFeatureData(ctx: pywss.Context):
+    student_list = ctx.json()['student_list']
+    # student_cluster = ctx.json()['student_cluster']
+    selected_features = features.loc[student_list]
+    # 求所有selected_features各个字段的均值
+    mean_features = selected_features.mean()
+    
+    # 将mean_features各个字段的值组合为list
+    res = {"status":0, "res_data": mean_features.to_list()}
+    res = json.dumps(res, default=API_StudentInfo.default_dump)
+    ctx.write(res)
+
+# 弃用
 def featureLinearRegression(ft: pd.DataFrame):
     features = ft.copy()
     featuresX = features[['most_common_hour', 'most_common_method', 'active_days', 'learn_hours',
@@ -244,7 +299,7 @@ def featureLinearRegression(ft: pd.DataFrame):
                'score_ratio_y9W5d']]
     # 定义多个不同的权重组合
     weights_list = [
-        {'total_score': 0.3, 'learn_hours': -0.1, 'active_days': -0.1, 'attempts_mean': -0.1, 'score_ratio_mean': 0.4}, # active_days设置为负数 r2_score = 0.99... 最佳
+        {'Score': 0.3, 'learn_hours': -0.1, 'active_days': -0.1, 'attempts_mean': -0.1, 'score_ratio_mean': 0.4}, # active_days设置为负数 r2_score = 0.99... 最佳
     ]
     features['attempts_mean'] = features[['attempts_b3C9s', 'attempts_g7R2j', 'attempts_k4W1c', 'attempts_m3D1v', 'attempts_r8S3g', 
                             'attempts_s8Y2f', 'attempts_t5V9e', 'attempts_y9W5d']].mean(axis=1)
@@ -253,7 +308,7 @@ def featureLinearRegression(ft: pd.DataFrame):
 
     for weights in weights_list:
         features['knowledge_mastery_score'] = (
-            weights['total_score'] * features['total_score'] +
+            weights['Score'] * features['Score'] +
             weights['learn_hours'] * features['learn_hours'] +
             weights['active_days'] * features['active_days'] +
             weights['attempts_mean'] * features['attempts_mean'] +
@@ -293,7 +348,7 @@ def featureLinearRegression(ft: pd.DataFrame):
         # print('Random Forest R2 Score:', r2_rf)
         # print('------')
         return linear_model, feature_importance_linear, features
-    
+# 弃用
 def resFeatureImportance(ctx: pywss.Context):
     linear_model, feature_importance_linear, _ = featureLinearRegression(features)
     xaxislabels = feature_importance_linear['Feature'].to_list()
@@ -302,9 +357,10 @@ def resFeatureImportance(ctx: pywss.Context):
     res = json.dumps(res, default=API_StudentInfo.default_dump)
     ctx.write(res)
 
+# 弃用
 def resLearnResultBoxPlotData(ctx: pywss.Context):
     lm, _, ft = featureLinearRegression(features)
-    # score = features.groupby('hierarchical_cluster')['knowledge_mastery_score']
+    # score = features.groupby('kmeans_cluster')['knowledge_mastery_score']
     # group_ids = []
     # scorelist = []
     # for group, data in score:
@@ -315,8 +371,8 @@ def resLearnResultBoxPlotData(ctx: pywss.Context):
     # res = json.dumps(res, default=API_StudentInfo.default_dump)
     # ctx.write(res)
 
-    # ft = ft[['student_ID', 'hierarchical_cluster', 'class', 'knowledge_mastery_score']] # student_ID是索引，特征中不包含class
-    ft = ft[['hierarchical_cluster', 'knowledge_mastery_score']]
+    # ft = ft[['student_ID', 'kmeans_cluster', 'class', 'knowledge_mastery_score']] # student_ID是索引，特征中不包含class
+    ft = ft[['kmeans_cluster', 'knowledge_mastery_score']]
     # res = {"status":0, "res_data": {'values': ft.values.tolist(), 'columns': ['ID', 'cluster', 'class', 'kg_level']}}
     res = {"status":0, "res_data": {'values': ft.values.tolist(), 'columns': ['cluster', 'kg_level']}}
     res = json.dumps(res, default=API_StudentInfo.default_dump)
@@ -328,7 +384,8 @@ def register(app: pywss.App):
     # app.get("/student_activity", resHeatMapData)
     app.get("/student_clusters", resStuClusterData) 
     app.get("/tsne_dr", resScatterData) 
-    app.get("/day_activity_river", resRiverFlowData)
+    # app.get("/day_activity_river", resRiverFlowData) # 弃用
     app.get("/attempts_correct", resAttempsAndCorrectLineData)
-    app.get("/feature_importance", resFeatureImportance)
-    app.get("/knowledge_level", resLearnResultBoxPlotData)
+    # app.get("/feature_importance", resFeatureImportance) # 弃用
+    # app.get("/knowledge_level", resLearnResultBoxPlotData) # 弃用
+    app.post("/student_feature", resStudentsFeatureData) # 选择部分学生，返回这些学生的特征均值，用于雷达图展示

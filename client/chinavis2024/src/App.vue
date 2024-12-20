@@ -8,9 +8,11 @@ import RadarChart from './components/RadarChart.vue';
 import StateChart from './components/StateChart.vue';
 import TSNEScatter from './components/TSNEScatter.vue';
 import DayActivityRiver from './components/DayActivityRiver.vue';
-import MultiLineChart from './components/MultiLineChart.vue';
+// import MultiLineChart from './components/MultiLineChart.vue';
 import FeatureImpactBar from './components/FeatureImpactBar.vue';
 import KnowledgeLevelBoxplot from './components/KnowledgeLevelBoxplot.vue';
+import WeekView from './components/WeekView.vue';
+import ProblemView from './components/ProblemView.vue';
 </script>
 
 <!-- <template>
@@ -120,32 +122,37 @@ nav a:first-of-type {
         </div>
       </div>
     </div>
-    <div class="sub-main mid" style="width: 40%; height: 100%">
+    <div class="sub-main mid" style="width: 45%; height: 100%">
       <div class="container">
-        <div id="radarchart" style="width: 100%; height: 50%;">
+        <div id="radarchart" style="width: 100%; height: 40%;">
             <RadarChart />
         </div>
-        <div id="activity" style="width: 100%; height: 25%;">
-            <DayActivityRiver />
+        <div id="activity" style="width: 100%; height: 60%;">
+          <WeekView />
+            <!-- <DayActivityRiver /> -->
         </div>
-        <div style="width: 100%; height: 25%; display: flex;">
-          <div style="width: 70%; height: 100%;">
+        <!-- <div style="width: 100%; height: 25%; display: flex;"> -->
+          <!-- <div style="width: 70%; height: 100%;">
             <MultiLineChart />
-          </div>
-          <div style="width: 30%; height: 100%;">
+          </div> -->
+          <!-- <div style="width: 30%; height: 100%;">
             <KnowledgeLevelBoxplot />
-          </div>
-        </div>
+          </div> -->
+        <!-- </div> -->
         
       </div>
     </div>
-    <div class="sub-main right" style="width: 30%; height: 100%">
+    <div class="sub-main right" style="width: 25%; height: 100%">
       <div class="container">
           <div style="width: 100%; height: 30%;">
             <TSNEScatter />
           </div>
-          <div style="width: 100%; height: 30%;">
+          <!-- <div style="width: 100%; height: 30%;">
             <FeatureImpactBar />
+          </div> -->
+          <div style="width: 100%; height: 70%;">
+            <!-- <MultiLineChart /> -->
+            <ProblemView />
           </div>
       </div>
     </div>

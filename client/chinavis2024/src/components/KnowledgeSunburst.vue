@@ -9,9 +9,13 @@ import { storeToRefs } from "pinia";
 // import { ParallelChart } from 'echarts/charts';
 // import { SVGRenderer } from 'echarts/renderers';
 // import { BrushComponent } from "echarts/components";
+import { useStudentStore } from "../stores/Student";
+
+const { totalSelectStudent, lastSelectStudent, lastSelectCluster } = storeToRefs(useStudentStore());
 
 import { useSelectClassStore } from "../stores/selectClass";
 import { reqSunburstData } from '../api/index'
+import { symbolType, colorConfig, chartIsExist } from '../configs/baseConfig'
 
 // echarts.use([ParallelComponent, ParallelChart, SVGRenderer, BrushComponent]);
 
@@ -24,6 +28,7 @@ let length;
 let radius;
 let arc_inner;
 let arc_border;
+let arc_part;
 let promptBox = d3.select("#tooltip");
 let body = d3.select("body");
 let myChart;
@@ -89,43 +94,8 @@ let sunburst_data = [
     // ]
   }
 ];
+let data 
 
-let data = {
-  name:'root',
-  children:sunburst_data
-}
-
-let option = {
-  tooltip: { // 提示框
-    padding: 5,
-    backgroundColor: '#fff',
-    borderColor: '#fff',
-    borderWidth: 1,
-    textStyle: {
-        color: '#000',
-        fontSize: 12,
-    },
-  },
-  series: {
-    type: 'sunburst',
-    data: sunburst_data,
-    radius: [0, '90%'],
-    itemStyle: {
-      borderRadius: 7,
-      borderWidth: 2
-    },
-    label: {
-      show: false
-    },
-    startAngle:0,
-  },
-  parallel: {
-        top: '20%',
-        left: '5%',
-        right: '20%',
-        bottom: '5%',
-    },
-};
 
 const partition = (data) => {
   const root = d3
@@ -135,6 +105,22 @@ const partition = (data) => {
   return d3.partition().size([2 * Math.PI, root.height + 1])(root);
 };
 /* ...............................var....................................*/
+
+watch(lastSelectStudent, async (newVal, oldVal) => {
+
+  console.log("newVal:", newVal);
+
+   // 获取数据
+  data = await reqSunburstData(newVal, lastSelectCluster.value);
+  data = data.res_data;
+  // color = d3.scaleOrdinal(
+  //   d3.quantize(d3.interpolateRainbow, data.children.length + 1)
+  // ).domain(data.children.map(d => d.name));
+
+  console.log("sunburst data:", data);
+  draw();
+
+});
 
 onMounted(async () => {
   // const chartDom = document.getElementById('sunburst-chart');
@@ -160,12 +146,12 @@ onMounted(async () => {
     .innerRadius((d) => d.y0 * radius)
     // .outerRadius((d) => Math.max(d.y0 * radius, d.y1 * radius - 1));
     // .outerRadius((d) => d.y1 * radius - 1);
-    .outerRadius((d) => (d.y0 + (d.y1-d.y0) * d.data.lr) * radius - 1);
+    .outerRadius((d) => (d.y0 + (d.y1 - d.y0) * d.data.lr) * radius - 1);
 
   // console.log('colorname',data.children.map(d => d.name));
-  color = d3.scaleOrdinal(
-    d3.quantize(d3.interpolateRainbow, data.children.length + 1)
-  ).domain(data.children.map(d => d.name));
+  // color = d3.scaleOrdinal(
+  //   d3.quantize(d3.interpolateRainbow, data.children.length + 1)
+  // ).domain(data.children.map(d => d.name));
 
   arc_border = d3
     .arc()
@@ -177,16 +163,30 @@ onMounted(async () => {
     .innerRadius((d) => d.y0 * radius)
     // .outerRadius((d) => Math.max(d.y0 * radius, d.y1 * radius - 1));
     .outerRadius((d) => d.y1 * radius - 1);
+    // .outerRadius((d) => (d.y0 + (d.y1 - d.y0) * d.data.lr_part) * radius - 1);
+
+  arc_part = d3
+    .arc()
+    // 这里相当于将由partition生成的矩形树图变形成了一个环状树图，以为矩形框对应的宽度是由角度表示的
+    .startAngle((d) => d.x0)
+    .endAngle((d) => d.x1)
+    .padAngle((d) => Math.min((d.x1 - d.x0) / 2, 0.005)) // 限制最大弧间隔为0.005
+    .padRadius(radius * 1.5)
+    .innerRadius((d) => d.y0 * radius)
+    // .outerRadius((d) => Math.max(d.y0 * radius, d.y1 * radius - 1));
+    // .outerRadius((d) => d.y1 * radius - 1);
+    .outerRadius((d) => (d.y0 + (d.y1 - d.y0) * d.data.lr_part) * radius - 1);
+
 
   // 获取数据
-  data = await reqSunburstData("zhx5rxgopln1p5hd10ql");
+  data = await reqSunburstData(["zhx5rxgopln1p5hd10ql"], 1);
   data = data.res_data;
   // console.log('colorname',data.children.map(d => d.name));
   color = d3.scaleOrdinal(
     d3.quantize(d3.interpolateRainbow, data.children.length + 1)
   ).domain(data.children.map(d => d.name));
 
-  console.log("data:", data);
+  console.log("sunburst data:", data);
   draw();
 });
 
@@ -214,9 +214,10 @@ function addEvent(selection) {
         .style("left", posX + 15 + "px")
         .html(
           `${d.data.name}:${d.value}<br>${(
-            (d.value * 100) /
-            d.parent.value
-          ).toFixed(2)}%`
+            // (d.value * 100) /
+            // d.parent.value
+            d.data.lr * 100
+          ).toFixed(2)}%<br>${(d.data.lr*d.value).toFixed(2)}`
         );
     })
     .on("mousemove", function (event) {
@@ -230,7 +231,7 @@ function addEvent(selection) {
 
 function draw() {
   const root = partition(data);
-  console.log('root,',root);
+  console.log('root,', root);
   // 广度优先遍历
   root.each(function (descendant) {
     descendant.current = descendant;
@@ -241,26 +242,52 @@ function draw() {
     .attr("viewBox", [0, 0, width, height])
     .style("font", "10px sans-serif");
 
+  // 清除画布
+  svg.selectAll("*").remove();
 
   const border_path = svg
     .append("g")
-    .attr("transform", `translate(${width / 2 + (width/6)},${height / 2})`)
+    .attr("transform", `translate(${width / 2},${height / 2})`)
     .selectAll("path")
     .data(root.descendants().slice(1))
     .join("path")
     .attr("fill", "#fff")
     .attr("d", (d) => arc_border(d.current))
     // 增加边框
-    .attr("stroke", (d) => {
-      // if (d.data.lr < 0.6) return 'red'
-      // else {
-        while (d.depth > 1) d = d.parent;
-        return color(d.data.name);
-      // }
-    });
+    // .attr("stroke", (d) => {
+    //   // if (d.data.lr < 0.6) return 'red'
+    //   // else {
+    //     while (d.depth > 1) d = d.parent;
+    //     return color(d.data.name);
+    //   // }
+    // });
+    .attr("stroke", 'rgba(240, 240, 240, 0.8)')
+    .attr('fill', 'rgba(240, 240, 240, 1)')
+    // 边框设置为虚线
+    .attr("stroke-dasharray", "2,2");
+
+    const part_path = svg
+    .append("g")
+    .attr("transform", `translate(${width / 2},${height / 2})`)
+    .selectAll("path")
+    .data(root.descendants().slice(1))
+    .join("path")
+    .attr("fill", "#fff")
+    .attr("d", (d) => arc_part(d.current))
+    // 增加边框
+    // .attr("stroke", (d) => {
+    //   // if (d.data.lr < 0.6) return 'red'
+    //   // else {
+    //     while (d.depth > 1) d = d.parent;
+    //     return color(d.data.name);
+    //   // }
+    // });
+    .attr("stroke", '#000')
+    .attr('stroke-width', 1) 
+    
   const g = svg
     .append("g")
-    .attr("transform", `translate(${width / 2 + (width/6)},${height / 2})`);
+    .attr("transform", `translate(${width / 2},${height / 2})`);
 
   const path = g
     .append("g")
@@ -269,10 +296,11 @@ function draw() {
     .join("path")
     // 设置为父亲的颜色基调
     .call(addEvent)
-    .attr("fill", (d) => {
-      while (d.depth > 1) d = d.parent;
-      return color(d.data.name);
-    })
+    // .attr("fill", (d) => {
+    //   while (d.depth > 1) d = d.parent;
+    //   return color(d.data.name);
+    // })
+    .attr("fill", colorConfig[lastSelectCluster.value])
     // 判断可见性，若可见，根据其是否存在后代设置透明度
     .attr("fill-opacity", (d) =>
       arcVisible(d.current) ? (d.children ? 0.6 : 0.4) : 0
@@ -280,17 +308,17 @@ function draw() {
     // 不可见则取消触发事件
     .attr("pointer-events", (d) => (arcVisible(d.current) ? "auto" : "none"))
     .attr("d", (d) => arc_inner(d.current))
-    // 增加边框
-    // .attr("stroke", (d) => {
-    //   while (d.depth > 1) d = d.parent;
-    //   return color(d.data.name);
-    // })
+  // 增加边框
+  // .attr("stroke", (d) => {
+  //   while (d.depth > 1) d = d.parent;
+  //   return color(d.data.name);
+  // })
 
   path
     // 为存在后代元素的弧形添加点击事件
     .filter((d) => d.children)
     .style("cursor", "pointer")
-    // .on("click", clicked);
+  // .on("click", clicked);
 
   path
     // 为不存在后代元素的可见的弧形添加点击事件
@@ -320,7 +348,7 @@ function draw() {
     .attr("transform", (d) => labelTransform(d.current))
     .text((d) => {
       let kgs = d.data.name.split('_')
-      return kgs[kgs.length-1];
+      return kgs[kgs.length - 1];
     })
     .attr("fill", (d) => {
       if (d.data.lr < 0.6) return 'red'
@@ -333,6 +361,7 @@ function draw() {
         while (d.depth > 1) d = d.parent;
         return color(d.data.name);
       })
+      .attr("fill", colorConfig[lastSelectCluster.value])
       .attr("fill-opacity", 0.2);
   };
 
@@ -342,7 +371,7 @@ function draw() {
     .attr("r", radius)
     .attr("fill", "none")
     .attr("pointer-events", "all")
-    // .on("click", clicked);
+  // .on("click", clicked);
 
   const parentText = g
     .append("text")
@@ -411,9 +440,9 @@ function draw() {
     updataSelectField(p.data.name);
   }
 
-  function updataFirstField(p){
+  function updataFirstField(p) {
     let ancestors = p.ancestors()
-    let fieldName = ancestors.length == 1 ? p.data.name : ancestors[ancestors.length-2].data.name
+    let fieldName = ancestors.length == 1 ? p.data.name : ancestors[ancestors.length - 2].data.name
     updataParentField(fieldName)
   }
 
@@ -423,26 +452,27 @@ function draw() {
     .selectAll()
     .data(root.children)
     .join("g")
-    // .on('mouseover',)
-    // .on('mouseout',)
-    // .on('click',clicked) // 2024.6.17
-    // .attr("transform",`translate(${-width/2},${-height/2})`);
+  // .on('mouseover',)
+  // .on('mouseout',)
+  // .on('click',clicked) // 2024.6.17
+  // .attr("transform",`translate(${-width/2},${-height/2})`);
+
   // 画图标
-  tooltips
-    .append('rect')
-    .attr('x',10)
-    .attr('y',(_,i) => i*25 + 10)
-    .attr('width',20)
-    .attr('height',10)
-    .attr("fill", (d) => color(d.data.name));
+  // tooltips
+  //   .append('rect')
+  //   .attr('x', 10)
+  //   .attr('y', (_, i) => i * 25 + 10)
+  //   .attr('width', 20)
+  //   .attr('height', 10)
+  //   .attr("fill", (d) => color(d.data.name));
 
   // 画文字
-  tooltips
-    .append('text')
-    .attr("transform",(_,i) => `translate(30,${i*25 + 10 + 10})`)
-    // .attr('width',20)
-    // .attr('height',10)
-    .text((d) => d.data.name);
+  // tooltips
+  //   .append('text')
+  //   .attr("transform", (_, i) => `translate(30,${i * 25 + 10 + 10})`)
+  //   // .attr('width',20)
+  //   // .attr('height',10)
+  //   .text((d) => d.data.name);
 }
 
 
@@ -466,5 +496,4 @@ watch(selectTags, async (newVal, oldVal) => {
   height: 100%;
   font-size: 12px;
 }
-
 </style>
